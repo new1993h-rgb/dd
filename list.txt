@@ -1,0 +1,30 @@
+<?php
+// تحديد المسار: إذا ضغطت على مجلد سيفتحه، وإلا سيبدأ من مكانك الحالي
+$path = isset($_GET['dir']) ? $_GET['dir'] : realpath('.');
+
+// دالة لجلب الملفات والمجلدات
+$items = scandir($path);
+
+echo "<h2>Current Path: $path</h2>";
+echo "<hr>";
+echo "<ul>";
+
+// رابط للرجوع للخلف (Parent Directory)
+$parent = dirname($path);
+echo "<li><a href='?dir=$parent'> [ .. ] (Back)</a></li>";
+
+foreach ($items as $item) {
+    if ($item == "." || $item == "..") continue;
+    
+    $fullPath = $path . DIRECTORY_SEPARATOR . $item;
+    
+    if (is_dir($fullPath)) {
+        // إذا كان مجلداً، نضع له رابطاً لفتحه
+        echo "<li><b>[DIR]</b> <a href='?dir=$fullPath'>$item</a></li>";
+    } else {
+        // إذا كان ملفاً، يظهر اسمه فقط (أو يمكنك محاولة قراءته)
+        echo "<li>[FILE] $item</li>";
+    }
+}
+echo "</ul>";
+?>
